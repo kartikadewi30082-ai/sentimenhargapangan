@@ -82,8 +82,10 @@ if st.button("Analisis Sentimen 🚀"):
             st.markdown("### Tingkat Keyakinan Model:")
             # Membuat tabel dataframe untuk probabilitas agar rapi
             df_prob = pd.DataFrame([probabilitas], columns=kelas_label)
-            # Format menjadi persentase
-            df_prob = df_prob.applymap(lambda x: f"{x*100:.2f}%")
+            
+            # PERBAIKAN: Menggunakan .map() sebagai pengganti .applymap() yang sudah dihapus di Pandas terbaru
+            df_prob = df_prob.map(lambda x: f"{x*100:.2f}%")
+            
             st.table(df_prob)
             
             st.write("**Teks setelah preprocessing (yang dibaca oleh mesin):**")
