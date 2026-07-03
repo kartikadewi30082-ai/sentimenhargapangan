@@ -1,14 +1,14 @@
 import streamlit as st
 import joblib
 import re
+import pandas as pd
 from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
 from Sastrawi.StopWordRemover.StopWordRemoverFactory import StopWordRemoverFactory
 
 # ==========================================
 # 1. PERSIAPAN MODEL DAN PREPROCESSING
 # ==========================================
-# Menginisialisasi Sastrawi (Stopword & Stemmer)
-@st.cache_resource # Cache agar tidak diload berulang kali saat tombol ditekan
+@st.cache_resource
 def load_sastrawi():
     stopword_factory = StopWordRemoverFactory()
     stopword_remover = stopword_factory.create_stop_word_remover()
@@ -18,29 +18,25 @@ def load_sastrawi():
 
 stopword_remover, stemmer = load_sastrawi()
 
-# Load Model dan Vectorizer yang sudah disimpan
+# Load Model dan Vectorizer
 try:
     model_nb = joblib.load('model_naive_bayes.pkl')
     tfidf_vectorizer = joblib.load('tfidf_vectorizer.pkl')
 except FileNotFoundError:
     st.error("File model atau vectorizer tidak ditemukan. Pastikan file .pkl sudah ada di direktori.")
+    st.stop() # Menghentikan aplikasi jika file tidak ada
 
-# Fungsi Preprocessing (Harus sama persis dengan saat pelatihan)
 def preprocess_text(text):
     if not isinstance(text, str):
         return ""
-    # Cleaning
     text = re.sub(r'http\S+|www\S+|https\S+', '', text)
     text = re.sub(r'@\w+', '', text)
     text = re.sub(r'#\w+', '', text)
     text = re.sub(r'[^\w\s]', '', text)
     text = re.sub(r'\d+', '', text)
-    # Case Folding
     text = text.lower().strip()
     text = re.sub(r'\s+', ' ', text)
-    # Stopword Removal
     text = stopword_remover.remove(text)
-    # Stemming
     text = stemmer.stem(text)
     return text
 
@@ -53,8 +49,7 @@ st.title("📊 Sistem Klasifikasi Sentimen")
 st.write("Implementasi Model Naïve Bayes untuk menganalisis sentimen ulasan.")
 st.markdown("---")
 
-# Input pengguna
-user_input = st.text_area("✍️ Masukkan teks ulasan di sini:", height=150, placeholder="Contoh: Harga bahan pokok sekarang sangat mahal dan memberatkan rakyat kecil...")
+user_input = st.text_area("✍️ Masukkan teks ulasan di sini:", height=150, placeholder="Contoh: Harga bahan pokok sekarang sangat mahal dan memberatkan...")
 
 if st.button("Analisis Sentimen 🚀"):
     if user_input.strip() == "":
@@ -65,13 +60,14 @@ if st.button("Analisis Sentimen 🚀"):
             clean_text = preprocess_text(user_input)
             
             # 2. Transformasi TF-IDF
-            # Perhatikan: gunakan transform(), BUKAN fit_transform()
             vektor_teks = tfidf_vectorizer.transform([clean_text])
             
-            # 3. Prediksi menggunakan Naïve Bayes
+            # 3. Prediksi dan Probabilitas
             prediksi = model_nb.predict(vektor_teks)[0]
+            probabilitas = model_nb.predict_proba(vektor_teks)[0]
+            kelas_label = model_nb.classes_
             
-            # Menampilkan Hasil
+            # Menampilkan Hasil Klasifikasi
             st.success("Analisis Selesai!")
             st.subheader("Hasil Klasifikasi:")
             
@@ -81,6 +77,14 @@ if st.button("Analisis Sentimen 🚀"):
                 st.error(f"Sentimen: **{prediksi}** 😡")
             else:
                 st.warning(f"Sentimen: **{prediksi}** 😐")
-                
-            st.write("**Teks setelah preprocessing:**")
+            
+            # Menampilkan Probabilitas Keyakinan Model
+            st.markdown("### Tingkat Keyakinan Model:")
+            # Membuat tabel dataframe untuk probabilitas agar rapi
+            df_prob = pd.DataFrame([probabilitas], columns=kelas_label)
+            # Format menjadi persentase
+            df_prob = df_prob.applymap(lambda x: f"{x*100:.2f}%")
+            st.table(df_prob)
+            
+            st.write("**Teks setelah preprocessing (yang dibaca oleh mesin):**")
             st.code(clean_text)
