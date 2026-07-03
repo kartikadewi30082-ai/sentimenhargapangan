@@ -1,0 +1,4 @@
+streamlit
+joblib
+Sastrawi
+scikit-learn
